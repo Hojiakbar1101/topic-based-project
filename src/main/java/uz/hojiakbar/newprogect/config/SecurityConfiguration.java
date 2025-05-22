@@ -2,54 +2,64 @@ package uz.hojiakbar.newprogect.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import uz.hojiakbar.newprogect.Security.JwtConfigure;
+import uz.hojiakbar.newprogect.Security.JwtTokenProvider;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfiguration {
-    private final UserDetailsService userDetailsService;
 
-    public SecurityConfiguration(@Lazy UserDetailsService userDetailsService) {
-        this.userDetailsService = userDetailsService;
+    private final JwtTokenProvider jwtTokenProvider;
+
+    public SecurityConfiguration(JwtTokenProvider jwtTokenProvider) {
+        this.jwtTokenProvider = jwtTokenProvider;
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .formLogin(form -> form.disable())
-                .logout(logout -> logout.disable())
-                .cors(cors -> cors.disable())
+                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/posts/paging/**").permitAll()
-                        .requestMatchers("/api/register").permitAll()
+                        .requestMatchers("/api/posts/paging/**").hasRole("USER")
+                        .requestMatchers("/api/posts").hasAnyRole("ADMIN", "USER")
+                        .requestMatchers("/api/authenticate", "/api/register").permitAll()
                         .anyRequest().authenticated()
                 )
-                .httpBasic(basic -> {});
+                .httpBasic(httpBasic -> {})
+                .with(new JwtConfigure(jwtTokenProvider), customizer -> {});
+
         return http.build();
     }
 
     @Bean
-    public AuthenticationManager authManager(HttpSecurity http) throws Exception {
-        AuthenticationManagerBuilder authenticationManagerBuilder = http.getSharedObject(AuthenticationManagerBuilder.class);
-        authenticationManagerBuilder
-                .userDetailsService(userDetailsService).passwordEncoder(passwordEncoder());
-        return authenticationManagerBuilder.build();
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+        return configuration.getAuthenticationManager();
     }
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(4);
-    }
+//
+//    @Bean
+//    public PasswordEncoder passwordEncoder() {
+//        return new BCryptPasswordEncoder();
+//    }
 }
+
+
+//    @Bean
+//    public AuthenticationManager authManager(HttpSecurity http) throws Exception {
+//        AuthenticationManagerBuilder authBuilder = http.getSharedObject(AuthenticationManagerBuilder.class);
+//        authBuilder.userDetailsService(userDetailsService).passwordEncoder(passwordEncoder());
+//        return authBuilder.build();
+//    }
+
+//    @Bean
+//    public PasswordEncoder passwordEncoder() {
+//        return new BCryptPasswordEncoder(4);
+//    }
+//}
